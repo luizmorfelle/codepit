@@ -4,6 +4,9 @@
 # Per-user config (written by setup.py)
 config.json
 
+# Per-user pet identity (written on first run of widgets/pet.py)
+pet_state.json
+
 # Python
 __pycache__/
 *.pyc

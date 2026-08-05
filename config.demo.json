@@ -1,4 +1,4 @@
 {
   "demo": true,
-  "panels": ["clock", "claude", "tickets", "prs", "heatmap"]
+  "panels": ["clock", "claude", "tickets", "prs", "heatmap", "pet"]
 }
