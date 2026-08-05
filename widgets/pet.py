@@ -47,7 +47,7 @@ def _worker(store, cfg):
             fake = demo.pet()
             mood, streak = fake["mood"], fake["streak"]
         else:
-            calendar = heatmap_github.fetch_calendar(weeks=2)
+            calendar = heatmap_github.fetch_calendar(weeks=12)
             today = date.today().isoformat()
             commits_today = next((d["count"] for d in calendar if d["date"] == today), 0)
             usage = {}

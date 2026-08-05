@@ -17,6 +17,12 @@ class TestPetState(unittest.TestCase):
             if os.path.exists(path):
                 os.unlink(path)
 
+    def test_load_never_raises_when_save_path_unwritable(self):
+        # A path inside a nonexistent directory: open() for write will raise OSError.
+        path = "/nonexistent-dir-xyz/pet_state.json"
+        state = pet_state.load(path)  # must not raise
+        self.assertEqual(state["name"], "Bit")
+
     def test_load_reads_existing_state(self):
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
             json.dump({"name": "Rex", "created_at": "2026-01-01"}, f)

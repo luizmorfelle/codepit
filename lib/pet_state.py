@@ -23,7 +23,10 @@ def load(path=None):
             state.update(json.load(f))
     except (OSError, ValueError):
         state["created_at"] = date.today().isoformat()
-        save(state, path)
+        try:
+            save(state, path)
+        except OSError:
+            pass
     return state
 
 
