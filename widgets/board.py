@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 import webbrowser
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -17,6 +17,7 @@ from lib import claude_usage  # noqa: E402
 from lib import theme  # noqa: E402
 
 REFRESH = 90
+HEATMAP_WEEKS = 12
 TICK_MS = 120
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STATUS_ORDER = ["To Do", "In Analysis", "In Development", "In Progress",
@@ -151,6 +152,38 @@ def review_color(glyph):
     if "draft" in glyph:
         return "dim"
     return "blue"
+
+
+HEATMAP_LEVELS = [(0, "heat0"), (2, "heat1"), (4, "heat2"), (7, "heat3")]
+
+
+def heatmap_color(count):
+    """'heat0'..'heat4' by commit-count thresholds (0 / 1-2 / 3-4 / 5-7 / 8+). Pure."""
+    count = count or 0
+    for threshold, name in HEATMAP_LEVELS:
+        if count <= threshold:
+            return name
+    return "heat4"
+
+
+def heatmap_grid(calendar, weeks=HEATMAP_WEEKS):
+    """Group a flat [{date, count}] list into `weeks` columns of 7 rows (Sun..Sat, oldest
+    week first). "Today" is inferred as the most recent date present in `calendar` (so
+    this is pure — no wall-clock dependency, fully testable with a fixed fixture). A cell
+    is None where no entry exists for that date. Uses each entry's own weekday, so it's
+    correct no matter how many extra padding days the source included."""
+    if not calendar:
+        return [[None] * 7 for _ in range(weeks)]
+    by_date = {d["date"]: d["count"] for d in calendar}
+    today = date.fromisoformat(max(by_date))
+    days_since_sunday = (today.weekday() + 1) % 7  # Mon=0..Sun=6 -> Sun=0..Sat=6
+    week_end = today + timedelta(days=6 - days_since_sunday)  # this week's Saturday
+    grid = []
+    for w in range(weeks):
+        col_end = week_end - timedelta(days=7 * (weeks - 1 - w))
+        col = [by_date.get((col_end - timedelta(days=6 - d)).isoformat()) for d in range(7)]
+        grid.append(col)
+    return grid
 
 
 class Store:

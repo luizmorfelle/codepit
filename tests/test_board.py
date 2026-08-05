@@ -102,6 +102,32 @@ class TestBoard(unittest.TestCase):
         self.assertEqual(board.pr_hit_test(chips, chips[0]["x0"], 3), "review")
         self.assertIsNone(board.pr_hit_test(chips, chips[0]["x0"], 4))
 
+    def test_heatmap_color_thresholds(self):
+        self.assertEqual(board.heatmap_color(0), "heat0")
+        self.assertEqual(board.heatmap_color(None), "heat0")
+        self.assertEqual(board.heatmap_color(1), "heat1")
+        self.assertEqual(board.heatmap_color(2), "heat1")
+        self.assertEqual(board.heatmap_color(3), "heat2")
+        self.assertEqual(board.heatmap_color(4), "heat2")
+        self.assertEqual(board.heatmap_color(5), "heat3")
+        self.assertEqual(board.heatmap_color(7), "heat3")
+        self.assertEqual(board.heatmap_color(8), "heat4")
+        self.assertEqual(board.heatmap_color(100), "heat4")
+
+    def test_heatmap_grid_shape(self):
+        grid = board.heatmap_grid([{"date": "2026-07-27", "count": 3}], weeks=2)
+        self.assertEqual(len(grid), 2)
+        self.assertTrue(all(len(col) == 7 for col in grid))
+
+    def test_heatmap_grid_places_count_on_right_weekday(self):
+        # 2026-07-27 is a Monday -> row index 1 (Sun=0..Sat=6) of the last (only) column
+        grid = board.heatmap_grid([{"date": "2026-07-27", "count": 3}], weeks=1)
+        self.assertEqual(grid[0][1], 3)
+        self.assertIsNone(grid[0][0])
+
+    def test_heatmap_grid_empty_calendar(self):
+        self.assertEqual(board.heatmap_grid([], weeks=3), [[None] * 7 for _ in range(3)])
+
 
 if __name__ == "__main__":
     unittest.main()
