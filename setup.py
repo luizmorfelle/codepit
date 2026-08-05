@@ -97,11 +97,17 @@ def configure_prs():
     return node
 
 
+def ask_panels():
+    print("Available panels: clock, claude, tickets, prs")
+    raw = ask("Which panels (comma-separated, or 'all')", "all")
+    if raw.strip().lower() == "all":
+        return list(config.PANELS)
+    return [p.strip() for p in raw.split(",") if p.strip() in config.PANELS]
+
+
 def main():
     print("── codepit setup ──")
-    print("Available panels: clock, claude, tickets, prs")
-    panels = ask_list("Which panels (comma-separated)") or list(config.PANELS)
-    panels = [p for p in panels if p in config.PANELS]
+    panels = ask_panels()
     cfg = {"panels": panels}
     if "tickets" in panels:
         cfg["tickets"] = configure_tickets()

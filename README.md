@@ -10,8 +10,7 @@ Built as a personal study project. The interesting parts: **zero pip dependencie
 `curses` interactive pane, a hand-written **MCP-over-HTTP client** (no SDK), pluggable
 backends behind a tiny dispatcher, and a plain `unittest` suite.
 
-<!-- Screenshot: run `cpit`, capture the terminal, save as screenshot.png at the repo
-     root, and replace this comment with: ![codepit](screenshot.png) -->
+![codepit](screenshot.png)
 
 
 ## Panels (toggle any of them at setup)
@@ -33,20 +32,22 @@ package's dispatcher — the contract is small (`fetch(cfg)` returning normalize
 
 ## Requirements
 
-- A Linux/macOS terminal, Python 3.8+
-- [Zellij](https://zellij.dev) — installed for you by `install.sh`
+- Linux, Python 3.8+
 - [`gh`](https://cli.github.com) authenticated (`gh auth login`) — for the GitHub backends
+- [Zellij](https://zellij.dev) — installed for you by `install.sh`, no root needed
 
 ## Install
 
+One command does everything: installs Zellij, walks you through picking panels and data
+sources, writes your config, and drops you straight into the dashboard.
+
 ```bash
 ./install.sh
-python3 setup.py     # choose panels + sources (writes config.json, .env, layout)
-source ~/.bashrc
-cpit                 # open the dashboard
 ```
 
-Skip `setup.py` and you get the defaults: GitHub for both tickets and PRs, all panels on.
+Answer "all" (or just hit enter) at the panels prompt to turn everything on. Re-run
+`./install.sh` any time to reconfigure — it skips steps already done (Zellij binary,
+`.env`) and re-asks the rest. After the first run, new terminals can just run `cpit`.
 
 ### Try it with demo data
 
@@ -59,7 +60,9 @@ CODEPIT_CONFIG=config.demo.json cpit                       # the full layout
 
 ## Configuration
 
-`setup.py` is interactive and re-runnable — run it any time to reconfigure. It writes:
+`install.sh` runs this for you on first install. `setup.py` is also re-runnable on its
+own — run `python3 setup.py` any time you just want to change panels/sources without
+touching the Zellij binary or PATH setup. It writes:
 
 - **`config.json`** (gitignored, per-user) — which panels, which source per panel, and
   non-secret options (PR role, repo filters).
