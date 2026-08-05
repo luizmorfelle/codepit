@@ -1,0 +1,11 @@
+keybinds {
+    shared {
+        bind "Alt t" { NewPane "stacked"; }
+        bind "Alt w" { CloseFocus; }
+        bind "Alt f" { ToggleFocusFullscreen; }
+        bind "Alt Left" { MoveFocus "Left"; }
+        bind "Alt Right" { MoveFocus "Right"; }
+        bind "Alt Up" { MoveFocus "Up"; }
+        bind "Alt Down" { MoveFocus "Down"; }
+    }
+}

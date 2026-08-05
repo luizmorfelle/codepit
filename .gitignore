@@ -1,0 +1,9 @@
+# Secrets — never commit
+.env
+
+# Per-user config (written by setup.py)
+config.json
+
+# Python
+__pycache__/
+*.pyc

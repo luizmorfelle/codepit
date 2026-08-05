@@ -1,0 +1,4 @@
+{
+  "demo": true,
+  "panels": ["clock", "claude", "tickets", "prs"]
+}
