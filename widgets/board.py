@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from lib import config  # noqa: E402
+from lib import heatmap_github  # noqa: E402
 from lib import tickets  # noqa: E402
 from lib import prs as prs_source  # noqa: E402
 from lib import claude_usage  # noqa: E402
@@ -193,6 +194,8 @@ class Store:
         self.prs = []
         self.usage = None
         self.usage_error = None
+        self.heatmap = []
+        self.heatmap_error = None
         self.error = None
         self.last_updated = None
         self.loading = False
@@ -201,12 +204,14 @@ class Store:
 def _worker(store, cfg):
     issues, prs, err = [], [], None
     usage, usage_err = None, None
+    heatmap, heatmap_err = [], None
     try:
         if cfg.get("demo"):
             from lib import demo
             issues = demo.issues() if config.panel_enabled(cfg, "tickets") else []
             prs = demo.prs() if config.panel_enabled(cfg, "prs") else []
             usage = demo.usage() if config.panel_enabled(cfg, "claude") else None
+            heatmap = demo.heatmap() if config.panel_enabled(cfg, "heatmap") else []
         else:
             if config.panel_enabled(cfg, "tickets"):
                 try:
@@ -223,12 +228,19 @@ def _worker(store, cfg):
                     usage = claude_usage.fetch_usage()
                 except Exception as exc:
                     usage_err = str(exc)
+            if config.panel_enabled(cfg, "heatmap"):
+                try:
+                    heatmap = heatmap_github.fetch_calendar(weeks=HEATMAP_WEEKS)
+                except Exception as exc:
+                    heatmap_err = str(exc)
     finally:
         with store.lock:
             store.issues = issues
             store.prs = prs
             store.usage = usage
             store.usage_error = usage_err
+            store.heatmap = heatmap
+            store.heatmap_error = heatmap_err
             store.error = err
             store.last_updated = datetime.now()
             store.loading = False
@@ -272,6 +284,7 @@ def run(stdscr):
     show_claude = config.panel_enabled(cfg, "claude")
     show_tickets = config.panel_enabled(cfg, "tickets")
     show_prs = config.panel_enabled(cfg, "prs")
+    show_heatmap = config.panel_enabled(cfg, "heatmap")
 
     store = Store()
     start_refresh(store, cfg)
@@ -299,6 +312,8 @@ def run(stdscr):
             prs = list(store.prs)
             usage = store.usage
             usage_error = store.usage_error
+            heatmap = list(store.heatmap)
+            heatmap_error = store.heatmap_error
             error = store.error
             loading = store.loading
             updated = store.last_updated
@@ -389,6 +404,24 @@ def run(stdscr):
                 putin(row, 2, "usage unavailable", text("dim"))
                 row += 1
             box(box_top, row, "Claude Usage" + (f" · {plan}" if plan else ""), "cyan")
+            row += 1
+
+        # GIT HEATMAP
+        if show_heatmap:
+            box_top = row
+            row += 1
+            total = None
+            if heatmap_error:
+                putin(row, 2, f"⚠ {heatmap_error}", text("red"))
+                row += 1
+            else:
+                grid = heatmap_grid(heatmap, weeks=HEATMAP_WEEKS)
+                total = sum(c for col in grid for c in col if c)
+                for w, col in enumerate(grid):
+                    for d, count in enumerate(col):
+                        putin(row + d, 2 + w * 3, "██", text(heatmap_color(count)))
+                row += 7
+            box(box_top, row, "Heatmap", "green", total)
             row += 1
 
         # TICKETS: a "By Status" box then a "Tickets" list box (with a row cursor)

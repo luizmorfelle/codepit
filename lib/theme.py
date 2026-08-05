@@ -12,6 +12,11 @@ COLORS = {
     "text": 189,
     "dim": 60,
     "bg": 235,
+    "heat0": 237,
+    "heat1": 22,
+    "heat2": 28,
+    "heat3": 34,
+    "heat4": 40,
 }
 
 RESET = "\033[0m"
