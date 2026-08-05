@@ -23,6 +23,14 @@ class TestDemo(unittest.TestCase):
         self.assertIn("pct", u["five_hour"])
         self.assertIn("resets_at", u["five_hour"])
 
+    def test_heatmap_shape(self):
+        cal = demo.heatmap()
+        self.assertEqual(len(cal), 84)
+        for d in cal:
+            self.assertEqual(set(d), {"date", "count"})
+            self.assertIsInstance(d["count"], int)
+            self.assertGreaterEqual(d["count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

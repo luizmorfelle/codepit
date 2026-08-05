@@ -3,7 +3,7 @@
 Lets anyone run the dashboard immediately and makes it safe to screenshot without
 leaking real tickets/PRs. Enable with a config that has {"demo": true} (see
 config.demo.json). All values below are invented."""
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 
 def issues():
@@ -46,3 +46,26 @@ def usage():
 
     return {"five_hour": win(42, 3), "seven_day": win(27, 96),
             "sonnet": win(15, 96), "plan": "pro"}
+
+
+def heatmap():
+    """Fake 12-week (84-day) contribution calendar, deterministic (no randomness) so the
+    demo/screenshot always looks the same relative to 'today'. A repeating weekly shape,
+    a couple of quiet weeks, and one busy week — invented but plausible-looking."""
+    today = date.today()
+    week_shape = [0, 2, 3, 0, 4, 1, 0]  # Sun..Sat, a "typical" week
+    quiet_weeks = {2, 3, 8}
+    busy_week = 10
+    out = []
+    for offset in range(83, -1, -1):
+        day = today - timedelta(days=offset)
+        week_idx = (83 - offset) // 7
+        weekday = (day.weekday() + 1) % 7  # Mon=0..Sun=6 -> Sun=0..Sat=6
+        if week_idx in quiet_weeks:
+            count = 0
+        elif week_idx == busy_week:
+            count = week_shape[weekday] + 4
+        else:
+            count = week_shape[weekday]
+        out.append({"date": day.isoformat(), "count": count})
+    return out
