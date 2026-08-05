@@ -122,11 +122,29 @@ class TestBoard(unittest.TestCase):
     def test_heatmap_grid_places_count_on_right_weekday(self):
         # 2026-07-27 is a Monday -> row index 1 (Sun=0..Sat=6) of the last (only) column
         grid = board.heatmap_grid([{"date": "2026-07-27", "count": 3}], weeks=1)
-        self.assertEqual(grid[0][1], 3)
-        self.assertIsNone(grid[0][0])
+        self.assertEqual(grid[0][1], ("2026-07-27", 3))
+        self.assertEqual(grid[0][0], ("2026-07-26", None))
 
     def test_heatmap_grid_empty_calendar(self):
         self.assertEqual(board.heatmap_grid([], weeks=3), [[None] * 7 for _ in range(3)])
+
+    def test_heatmap_grid_dates_always_present_when_calendar_nonempty(self):
+        grid = board.heatmap_grid([{"date": "2026-07-27", "count": 3}], weeks=1)
+        for cell in grid[0]:
+            self.assertIsNotNone(cell)
+            date_str, _count = cell
+            self.assertRegex(date_str, r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_heatmap_month_labels_marks_month_changes(self):
+        grid = [
+            [("2026-06-28", 0)] + [None] * 6,   # Sunday in June
+            [("2026-07-05", 1)] + [None] * 6,   # Sunday in July (new month)
+            [("2026-07-12", 2)] + [None] * 6,   # Sunday still in July
+        ]
+        self.assertEqual(board.heatmap_month_labels(grid), {0: "Jun", 1: "Jul"})
+
+    def test_heatmap_month_labels_empty_grid(self):
+        self.assertEqual(board.heatmap_month_labels([[None] * 7]), {})
 
 
 if __name__ == "__main__":

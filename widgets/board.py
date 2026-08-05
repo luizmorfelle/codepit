@@ -19,6 +19,7 @@ from lib import theme  # noqa: E402
 
 REFRESH = 90
 HEATMAP_WEEKS = 12
+HEATMAP_COL0 = 6  # x where the grid starts, after the weekday-label column
 TICK_MS = 120
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STATUS_ORDER = ["To Do", "In Analysis", "In Development", "In Progress",
@@ -170,9 +171,12 @@ def heatmap_color(count):
 def heatmap_grid(calendar, weeks=HEATMAP_WEEKS):
     """Group a flat [{date, count}] list into `weeks` columns of 7 rows (Sun..Sat, oldest
     week first). "Today" is inferred as the most recent date present in `calendar` (so
-    this is pure — no wall-clock dependency, fully testable with a fixed fixture). A cell
-    is None where no entry exists for that date. Uses each entry's own weekday, so it's
-    correct no matter how many extra padding days the source included."""
+    this is pure — no wall-clock dependency, fully testable with a fixed fixture). Each
+    cell is a (date, count) tuple: date is the real calendar date for that grid position
+    (always present), count is None where no entry exists for that date — except when
+    `calendar` is empty, where there is no date to anchor "today" to at all and every
+    cell is bare None. Uses each entry's own weekday, so it's correct no matter how many
+    extra padding days the source included."""
     if not calendar:
         return [[None] * 7 for _ in range(weeks)]
     by_date = {d["date"]: d["count"] for d in calendar}
@@ -182,9 +186,34 @@ def heatmap_grid(calendar, weeks=HEATMAP_WEEKS):
     grid = []
     for w in range(weeks):
         col_end = week_end - timedelta(days=7 * (weeks - 1 - w))
-        col = [by_date.get((col_end - timedelta(days=6 - d)).isoformat()) for d in range(7)]
+        col = []
+        for d in range(7):
+            day = col_end - timedelta(days=6 - d)
+            col.append((day.isoformat(), by_date.get(day.isoformat())))
         grid.append(col)
     return grid
+
+
+WEEKDAY_LABELS = ["", "Seg", "", "Qua", "", "Sex", ""]  # Sun=0..Sat=6; Portuguese, 3-letter
+MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+              "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+def heatmap_month_labels(grid):
+    """{week_index: 'Mon'} for each column whose Sunday date starts a new month relative
+    to the previous labeled column (column 0 is always labeled if it has a date). Pure."""
+    labels = {}
+    prev_month = None
+    for w, col in enumerate(grid):
+        cell = col[0]  # Sunday
+        if not cell:
+            continue
+        date_str, _count = cell
+        month = date_str[5:7]
+        if month != prev_month:
+            labels[w] = MONTH_ABBR[int(month) - 1]
+            prev_month = month
+    return labels
 
 
 class Store:
