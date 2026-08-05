@@ -31,6 +31,10 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(config.board_enabled(cfg))  # tickets is a board card
         self.assertFalse(config.board_enabled({"panels": ["clock"]}))
 
+    def test_heatmap_is_a_board_card(self):
+        self.assertTrue(config.board_enabled({"panels": ["heatmap"]}))
+        self.assertTrue(config.panel_enabled({"panels": ["heatmap"]}, "heatmap"))
+
     def test_build_layout_clock_toggle(self):
         with_clock = config.build_layout({"panels": ["clock", "tickets"]}, "/x")
         self.assertIn("Clock", with_clock)

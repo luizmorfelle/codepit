@@ -8,7 +8,7 @@ import os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT, "config.json")
 
-PANELS = ["clock", "claude", "tickets", "prs"]
+PANELS = ["clock", "claude", "tickets", "prs", "heatmap"]
 TICKET_SOURCES = ["github", "jira", "trello", "mcp"]
 PR_SOURCES = ["github", "gitlab", "bitbucket", "mcp"]
 
@@ -44,8 +44,8 @@ def panel_enabled(cfg, name):
 
 
 def board_enabled(cfg):
-    """The board pane exists if any of its cards (claude/tickets/prs) is on."""
-    return any(panel_enabled(cfg, p) for p in ("claude", "tickets", "prs"))
+    """The board pane exists if any of its cards (claude/tickets/prs/heatmap) is on."""
+    return any(panel_enabled(cfg, p) for p in ("claude", "tickets", "prs", "heatmap"))
 
 
 def _pane(name, cmd, size=None, borderless=True):

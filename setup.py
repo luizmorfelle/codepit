@@ -98,7 +98,7 @@ def configure_prs():
 
 
 def ask_panels():
-    print("Available panels: clock, claude, tickets, prs")
+    print("Available panels: clock, claude, tickets, prs, heatmap")
     raw = ask("Which panels (comma-separated, or 'all')", "all")
     if raw.strip().lower() == "all":
         return list(config.PANELS)
