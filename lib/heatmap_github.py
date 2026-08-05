@@ -39,7 +39,10 @@ def fetch_calendar(weeks=12):
     args = ["gh", "api", "graphql", "-f", f"query={QUERY}",
             "-F", f"from={frm.strftime('%Y-%m-%dT00:00:00Z')}",
             "-F", f"to={to.strftime('%Y-%m-%dT23:59:59Z')}"]
-    out = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    try:
+        out = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("gh api timed out after 30s")
     if out.returncode != 0:
         raise RuntimeError(out.stderr.strip() or "gh failed")
     return parse_calendar(json.loads(out.stdout or "null") or {})
