@@ -60,21 +60,29 @@ def build_layout(cfg, root):
     """Generate the Zellij layout (KDL) honoring which panels are enabled. Pure.
 
     Structure: a full-width content region on top and a single-line Shortcuts bar
-    at the very bottom. The content is left column (clock + pet + one shell) + the
-    board."""
+    at the very bottom. The content is left column (clock+pet row, then one shell) +
+    the board. Clock and pet sit side by side (50/50) when both are enabled; either
+    alone takes the full row width; the row is absent if neither is enabled."""
     src = f'source {root}/.env 2>/dev/null; exec '
-    clock = _pane("Clock", f"{src}python3 {root}/widgets/clock.py", size='"20%"')
-    pet = _pane("Pet", f"{src}python3 {root}/widgets/pet.py", size='"20%"')
     shell = ('pane focus=true command="bash" {\n'
              '    args "-lc" "cd $HOME; claude; exec bash -i"\n'
              '}')
     shortcuts = _pane("Shortcuts", f"exec python3 {root}/widgets/cheatsheet.py", size="1")
 
-    left_children = (
-        ([clock] if panel_enabled(cfg, "clock") else [])
-        + ([pet] if panel_enabled(cfg, "pet") else [])
-        + [shell]
-    )
+    show_clock = panel_enabled(cfg, "clock")
+    show_pet = panel_enabled(cfg, "pet")
+    if show_clock and show_pet:
+        clock = _pane("Clock", f"{src}python3 {root}/widgets/clock.py", size='"50%"')
+        pet = _pane("Pet", f"{src}python3 {root}/widgets/pet.py", size='"50%"')
+        top_row = [f'pane split_direction="vertical" size="20%" {{\n{clock}\n{pet}\n}}']
+    elif show_clock:
+        top_row = [_pane("Clock", f"{src}python3 {root}/widgets/clock.py", size='"20%"')]
+    elif show_pet:
+        top_row = [_pane("Pet", f"{src}python3 {root}/widgets/pet.py", size='"20%"')]
+    else:
+        top_row = []
+
+    left_children = top_row + [shell]
     left_body = "\n".join(left_children)
     if board_enabled(cfg):
         board = _pane("Board", f"{src}python3 {root}/widgets/board.py", size='"30%"')

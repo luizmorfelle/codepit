@@ -58,6 +58,18 @@ class TestConfig(unittest.TestCase):
         for panels in (["clock", "tickets"], ["clock"], ["prs"]):
             self.assertIn("Shortcuts", config.build_layout({"panels": panels}, "/x"))
 
+    def test_build_layout_clock_and_pet_side_by_side(self):
+        both = config.build_layout({"panels": ["clock", "pet"]}, "/x")
+        self.assertIn("Clock", both)
+        self.assertIn("Pet", both)
+        self.assertIn('split_direction="vertical" size="20%"', both)
+
+    def test_build_layout_pet_alone_full_width(self):
+        pet_only = config.build_layout({"panels": ["pet"]}, "/x")
+        self.assertIn("Pet", pet_only)
+        self.assertNotIn("Clock", pet_only)
+        self.assertNotIn('split_direction="vertical" size="20%"', pet_only)
+
 
 if __name__ == "__main__":
     unittest.main()
