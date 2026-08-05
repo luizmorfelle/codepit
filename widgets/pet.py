@@ -21,7 +21,8 @@ from lib import theme  # noqa: E402
 
 REFRESH = 90
 TICK_MS = 150
-BLINK_EVERY = 20  # ticks (~3s at TICK_MS=150)
+BLINK_CYCLE = 40      # ticks between blinks (~6s at TICK_MS=150)
+BLINK_DURATION = 2    # ticks the eyes stay closed (~0.3s at TICK_MS=150)
 
 FRAMES = {
     "happy":          [" ∩___∩ ", "( ^‿^ )", " ‾‾‾‾‾ "],
@@ -134,7 +135,7 @@ def _draw(stdscr, pairs, store, x, facing, blink):
         y = top + i
         if 0 <= y < maxy:
             try:
-                stdscr.addnstr(y, x, line, max(0, maxx - x), attr)
+                stdscr.addnstr(y, x, line, max(0, maxx - x - 1), attr)
             except curses.error:
                 pass
     for i, (s, row_attr) in enumerate(label_rows):
@@ -166,8 +167,7 @@ def run(stdscr):
         if stdscr.getch() == ord("q"):
             break
         tick += 1
-        if tick % BLINK_EVERY == 0:
-            blink = not blink
+        blink = (tick % BLINK_CYCLE) < BLINK_DURATION
         x, facing = step_x(x, facing, maxx)
         if time.monotonic() - last >= REFRESH:
             start_refresh(store, cfg)

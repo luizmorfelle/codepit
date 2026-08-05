@@ -19,8 +19,8 @@ backends behind a tiny dispatcher, and a plain `unittest` suite.
 - **claude** — your 5h / 7d / per-model Claude usage bars, read from the local Claude Code credentials.
 - **tickets** — your open tickets, filterable by status with clickable chips and scroll.
 - **prs** — open PRs where you're author *or* reviewer, with review/CI status badges.
-- **heatmap** — a grid of your last 12 weeks of GitHub contributions (commits, PRs, issues, reviews).
-- **pet** — an ASCII companion whose mood reflects today's GitHub contributions + Claude usage.
+- **heatmap** — a grid of your last 12 weeks of GitHub contributions (commits, PRs, issues, reviews), with weekday and month labels.
+- **pet** — an ASCII companion that walks back and forth beside the Clock, blinking periodically, whose mood reflects today's GitHub contributions + Claude usage.
 
 `heatmap` and `pet` always use GitHub (via `gh`) — there's no source to pick for them,
 unlike `tickets`/`prs` below.
