@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Terminal pet — ASCII companion whose mood reflects today's dev activity (commits +
-Claude usage). Standalone curses widget with its own Zellij pane (same shape as
-clock.py), but fetches over the network like board.py, so it runs its own small
-background worker thread instead of computing everything inline."""
+Claude usage), and who walks back and forth across its pane with a periodic blink.
+Standalone curses widget with its own Zellij pane (same shape as clock.py), but fetches
+over the network like board.py, so it runs its own small background worker thread
+instead of computing everything inline."""
 import curses
 import os
 import sys
@@ -19,15 +20,45 @@ from lib import pet_state  # noqa: E402
 from lib import theme  # noqa: E402
 
 REFRESH = 90
-TICK_MS = 1000
+TICK_MS = 150
+BLINK_EVERY = 20  # ticks (~3s at TICK_MS=150)
 
 FRAMES = {
-    "happy":    [" ∩___∩ ", "( ^‿^ )", " ‾‾‾‾‾ "],
-    "thinking": [" ∩___∩ ", "( ·_· )", " ‾‾‾‾‾ "],
-    "hungry":   [" ∩___∩ ", "( ;_; )", " ‾‾‾‾‾ "],
-    "unknown":  [" ∩___∩ ", "( ?_? )", " ‾‾‾‾‾ "],
+    "happy":          [" ∩___∩ ", "( ^‿^ )", " ‾‾‾‾‾ "],
+    "happy_blink":    [" ∩___∩ ", "( -‿- )", " ‾‾‾‾‾ "],
+    "thinking":       [" ∩___∩ ", "( ·_· )", " ‾‾‾‾‾ "],
+    "thinking_blink": [" ∩___∩ ", "( -_- )", " ‾‾‾‾‾ "],
+    "hungry":         [" ∩___∩ ", "( ;_; )", " ‾‾‾‾‾ "],
+    "hungry_blink":   [" ∩___∩ ", "( >_< )", " ‾‾‾‾‾ "],
+    "unknown":        [" ∩___∩ ", "( ?_? )", " ‾‾‾‾‾ "],
 }
 MOOD_COLOR = {"happy": "green", "thinking": "cyan", "hungry": "orange", "unknown": "dim"}
+MIRROR = str.maketrans("()", ")(")
+FRAME_WIDTH = max(len(line) for line in FRAMES["happy"])
+
+
+def frame_for(mood, blink):
+    """The FRAMES entry for this mood, swapping in the blink variant when blink is True
+    and one exists. Pure."""
+    key = f"{mood}_blink" if blink else mood
+    return FRAMES.get(key, FRAMES.get(mood, FRAMES["unknown"]))
+
+
+def mirror_frame(frame):
+    """The frame with its left/right parens swapped, to hint the pet facing the other
+    way — no separate left-facing art needed. Pure."""
+    return [line.translate(MIRROR) for line in frame]
+
+
+def step_x(x, facing, maxx):
+    """Next (x, facing) after one walking step, bouncing off the pane edges so the
+    frame (FRAME_WIDTH wide) always stays fully visible. Pure."""
+    x += facing
+    if x < 0:
+        x, facing = 0, 1
+    elif x + FRAME_WIDTH > maxx:
+        x, facing = max(0, maxx - FRAME_WIDTH), -1
+    return x, facing
 
 
 class Store:
@@ -83,27 +114,35 @@ def _init_pairs():
     return pairs
 
 
-def _draw(stdscr, pairs, store):
+def _draw(stdscr, pairs, store, x, facing, blink):
     stdscr.erase()
     maxy, maxx = stdscr.getmaxyx()
     with store.lock:
         name, mood, streak, error = store.name, store.mood, store.streak, store.error
 
-    frame = FRAMES.get(mood, FRAMES["unknown"])
+    frame = frame_for(mood, blink)
+    if facing == -1:
+        frame = mirror_frame(frame)
     attr = curses.color_pair(pairs[MOOD_COLOR.get(mood, "dim")]) | curses.A_BOLD
 
-    rows = [(line, attr) for line in frame]
-    rows.append((f"{name} · streak {streak}", curses.color_pair(pairs["dim"])))
+    label_rows = [(f"{name} · streak {streak}", curses.color_pair(pairs["dim"]))]
     if error:
-        rows.append((f"⚠ {error}", curses.color_pair(pairs["red"])))
+        label_rows.append((f"⚠ {error}", curses.color_pair(pairs["red"])))
 
-    top = max(0, (maxy - len(rows)) // 2)
-    for i, (s, row_attr) in enumerate(rows):
+    top = max(0, (maxy - len(frame) - len(label_rows)) // 2)
+    for i, line in enumerate(frame):
         y = top + i
         if 0 <= y < maxy:
-            x = max(0, (maxx - len(s)) // 2)
             try:
-                stdscr.addnstr(y, x, s, max(0, maxx - x - 1), row_attr)
+                stdscr.addnstr(y, x, line, max(0, maxx - x), attr)
+            except curses.error:
+                pass
+    for i, (s, row_attr) in enumerate(label_rows):
+        y = top + len(frame) + i
+        if 0 <= y < maxy:
+            lx = max(0, (maxx - len(s)) // 2)
+            try:
+                stdscr.addnstr(y, lx, s, max(0, maxx - lx - 1), row_attr)
             except curses.error:
                 pass
     stdscr.refresh()
@@ -117,10 +156,19 @@ def run(stdscr):
     store = Store()
     start_refresh(store, cfg)
     last = time.monotonic()
+    x, facing, blink = None, 1, False
+    tick = 0
     while True:
-        _draw(stdscr, pairs, store)
+        maxx = stdscr.getmaxyx()[1]
+        if x is None:
+            x = max(0, (maxx - FRAME_WIDTH) // 2)
+        _draw(stdscr, pairs, store, x, facing, blink)
         if stdscr.getch() == ord("q"):
             break
+        tick += 1
+        if tick % BLINK_EVERY == 0:
+            blink = not blink
+        x, facing = step_x(x, facing, maxx)
         if time.monotonic() - last >= REFRESH:
             start_refresh(store, cfg)
             last = time.monotonic()
