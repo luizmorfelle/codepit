@@ -445,10 +445,17 @@ def run(stdscr):
                 row += 1
             else:
                 grid = heatmap_grid(heatmap, weeks=HEATMAP_WEEKS)
-                total = sum(c for col in grid for c in col if c)
+                total = sum(cell[1] for col in grid for cell in col if cell and cell[1])
+                for w, label in heatmap_month_labels(grid).items():
+                    putin(row, HEATMAP_COL0 + w * 3, label, text("dim"))
+                row += 1
+                for d, wd_label in enumerate(WEEKDAY_LABELS):
+                    if wd_label:
+                        putin(row + d, 2, wd_label, text("dim"))
                 for w, col in enumerate(grid):
-                    for d, count in enumerate(col):
-                        putin(row + d, 2 + w * 3, "██", text(heatmap_color(count)))
+                    for d, cell in enumerate(col):
+                        count = cell[1] if cell else None
+                        putin(row + d, HEATMAP_COL0 + w * 3, "██", text(heatmap_color(count)))
                 row += 7
             box(box_top, row, "Heatmap", "green", total)
             row += 1
