@@ -69,3 +69,8 @@ def heatmap():
             count = week_shape[weekday]
         out.append({"date": day.isoformat(), "count": count})
     return out
+
+
+def pet():
+    """Fake pet display data — no randomness, same every time."""
+    return {"name": "Bit", "mood": "happy", "streak": 5}

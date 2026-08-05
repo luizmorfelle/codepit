@@ -31,6 +31,11 @@ class TestDemo(unittest.TestCase):
             self.assertIsInstance(d["count"], int)
             self.assertGreaterEqual(d["count"], 0)
 
+    def test_pet_shape(self):
+        p = demo.pet()
+        self.assertEqual(set(p), {"name", "mood", "streak"})
+        self.assertIn(p["mood"], ("happy", "thinking", "hungry"))
+
 
 if __name__ == "__main__":
     unittest.main()
