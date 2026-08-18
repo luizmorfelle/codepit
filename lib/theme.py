@@ -7,6 +7,7 @@ COLORS = {
     "yellow": 179,
     "red": 210,
     "purple": 141,
+    "magenta": 207,
     "cyan": 117,
     "orange": 215,
     "text": 189,

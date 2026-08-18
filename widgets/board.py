@@ -208,7 +208,7 @@ class Store:
 def _worker(store, cfg):
     issues, prs, err = [], [], None
     usage, usage_err = None, None
-    omniroute_usage, omniroute_err = None, None
+    omni, omniroute_err = None, None
     heatmap, heatmap_err = [], None
     try:
         if cfg.get("demo"):
@@ -216,7 +216,7 @@ def _worker(store, cfg):
             issues = demo.issues() if config.panel_enabled(cfg, "tickets") else []
             prs = demo.prs() if config.panel_enabled(cfg, "prs") else []
             usage = demo.usage() if config.panel_enabled(cfg, "claude") else None
-            omniroute_usage = demo.omniroute_usage() if config.panel_enabled(cfg, "omniroute") else None
+            omni = demo.omniroute_usage() if config.panel_enabled(cfg, "omniroute") else None
             heatmap = demo.heatmap() if config.panel_enabled(cfg, "heatmap") else []
         else:
             if config.panel_enabled(cfg, "tickets"):
@@ -236,7 +236,7 @@ def _worker(store, cfg):
                     usage_err = str(exc)
             if config.panel_enabled(cfg, "omniroute"):
                 try:
-                    omniroute_usage = omniroute_usage.fetch_usage()
+                    omni = omniroute_usage.fetch_usage()
                 except Exception as exc:
                     omniroute_err = str(exc)
             if config.panel_enabled(cfg, "heatmap"):
@@ -250,7 +250,7 @@ def _worker(store, cfg):
             store.prs = prs
             store.usage = usage
             store.usage_error = usage_err
-            store.omniroute_usage = omniroute_usage
+            store.omniroute_usage = omni
             store.omniroute_error = omniroute_err
             store.heatmap = heatmap
             store.heatmap_error = heatmap_err
