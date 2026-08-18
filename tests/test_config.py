@@ -35,11 +35,11 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(config.board_enabled({"panels": ["heatmap"]}))
         self.assertTrue(config.panel_enabled({"panels": ["heatmap"]}, "heatmap"))
 
-    def test_build_layout_pet_toggle(self):
-        with_pet = config.build_layout({"panels": ["pet"]}, "/x")
-        self.assertIn("Pet", with_pet)
-        no_pet = config.build_layout({"panels": ["clock"]}, "/x")
-        self.assertNotIn("Pet", no_pet)
+    def test_build_layout_omniroute_toggle(self):
+        with_omniroute = config.build_layout({"panels": ["omniroute"]}, "/x")
+        self.assertIn("Board", with_omniroute)
+        no_omniroute = config.build_layout({"panels": ["clock"]}, "/x")
+        self.assertNotIn("OmniRoute", no_omniroute)
 
     def test_build_layout_clock_toggle(self):
         with_clock = config.build_layout({"panels": ["clock", "tickets"]}, "/x")

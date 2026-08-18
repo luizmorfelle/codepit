@@ -44,8 +44,8 @@ def panel_enabled(cfg, name):
 
 
 def board_enabled(cfg):
-    """The board pane exists if any of its cards (claude/tickets/prs/heatmap) is on."""
-    return any(panel_enabled(cfg, p) for p in ("claude", "tickets", "prs", "heatmap"))
+    """The board pane exists if any of its cards (claude/tickets/prs/heatmap/omniroute) is on."""
+    return any(panel_enabled(cfg, p) for p in ("claude", "tickets", "prs", "heatmap", "omniroute"))
 
 
 def _pane(name, cmd, size=None, borderless=True):

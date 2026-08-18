@@ -31,10 +31,13 @@ class TestDemo(unittest.TestCase):
             self.assertIsInstance(d["count"], int)
             self.assertGreaterEqual(d["count"], 0)
 
-    def test_pet_shape(self):
-        p = demo.pet()
-        self.assertEqual(set(p), {"name", "mood", "streak"})
-        self.assertIn(p["mood"], ("happy", "thinking", "hungry"))
+    def test_omniroute_usage_shape(self):
+        u = demo.omniroute_usage()
+        self.assertIn("connections", u)
+        self.assertIn("fetched_at", u)
+        for conn in u["connections"]:
+            self.assertIn("provider", conn)
+            self.assertIn("name", conn)
 
 
 if __name__ == "__main__":

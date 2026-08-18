@@ -20,9 +20,10 @@ backends behind a tiny dispatcher, and a plain `unittest` suite.
 - **tickets** — your open tickets, filterable by status with clickable chips and scroll.
 - **prs** — open PRs where you're author *or* reviewer, with review/CI status badges.
 - **heatmap** — a grid of your last 12 weeks of GitHub contributions (commits, PRs, issues, reviews).
-- **pet** — an ASCII companion whose mood reflects today's GitHub contributions + Claude usage.
+- **heatmap** — a grid of your last 12 weeks of GitHub contributions (commits, PRs, issues, reviews).
+- **omniroute** — active OmniRoute provider connections with usage status.
 
-`heatmap` and `pet` always use GitHub (via `gh`) — there's no source to pick for them,
+`heatmap` and `omniroute` always use their own data sources — there's no source to pick for them,
 unlike `tickets`/`prs` below.
 
 ## Data sources (pick one per panel at setup)
@@ -34,6 +35,9 @@ unlike `tickets`/`prs` below.
 
 Adding a backend is one file under `lib/tickets/` or `lib/prs/` plus a line in that
 package's dispatcher — the contract is small (`fetch(cfg)` returning normalized dicts).
+
+The `omniroute` panel reads from your local OmniRoute SQLite (`~/.omniroute/storage.sqlite`)
+and optionally calls the OmniRoute gateway API on `localhost:20128` for usage quotas.
 
 ## Requirements
 
