@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unified right-hand pane (curses): Claude usage + tickets by status + pull requests."""
 import curses
+import json
 import os
 import sys
 import threading
@@ -15,6 +16,7 @@ from lib import heatmap_github  # noqa: E402
 from lib import tickets  # noqa: E402
 from lib import prs as prs_source  # noqa: E402
 from lib import claude_usage  # noqa: E402
+from lib import omniroute_usage  # noqa: E402
 from lib import theme  # noqa: E402
 
 REFRESH = 90
@@ -194,6 +196,8 @@ class Store:
         self.prs = []
         self.usage = None
         self.usage_error = None
+        self.omniroute_usage = None
+        self.omniroute_error = None
         self.heatmap = []
         self.heatmap_error = None
         self.error = None
@@ -204,6 +208,7 @@ class Store:
 def _worker(store, cfg):
     issues, prs, err = [], [], None
     usage, usage_err = None, None
+    omniroute_usage, omniroute_err = None, None
     heatmap, heatmap_err = [], None
     try:
         if cfg.get("demo"):
@@ -211,6 +216,7 @@ def _worker(store, cfg):
             issues = demo.issues() if config.panel_enabled(cfg, "tickets") else []
             prs = demo.prs() if config.panel_enabled(cfg, "prs") else []
             usage = demo.usage() if config.panel_enabled(cfg, "claude") else None
+            omniroute_usage = demo.omniroute_usage() if config.panel_enabled(cfg, "omniroute") else None
             heatmap = demo.heatmap() if config.panel_enabled(cfg, "heatmap") else []
         else:
             if config.panel_enabled(cfg, "tickets"):
@@ -228,6 +234,11 @@ def _worker(store, cfg):
                     usage = claude_usage.fetch_usage()
                 except Exception as exc:
                     usage_err = str(exc)
+            if config.panel_enabled(cfg, "omniroute"):
+                try:
+                    omniroute_usage = omniroute_usage.fetch_usage()
+                except Exception as exc:
+                    omniroute_err = str(exc)
             if config.panel_enabled(cfg, "heatmap"):
                 try:
                     heatmap = heatmap_github.fetch_calendar(weeks=HEATMAP_WEEKS)
@@ -239,6 +250,8 @@ def _worker(store, cfg):
             store.prs = prs
             store.usage = usage
             store.usage_error = usage_err
+            store.omniroute_usage = omniroute_usage
+            store.omniroute_error = omniroute_err
             store.heatmap = heatmap
             store.heatmap_error = heatmap_err
             store.error = err
@@ -285,6 +298,7 @@ def run(stdscr):
     show_tickets = config.panel_enabled(cfg, "tickets")
     show_prs = config.panel_enabled(cfg, "prs")
     show_heatmap = config.panel_enabled(cfg, "heatmap")
+    show_omniroute = config.panel_enabled(cfg, "omniroute")
 
     store = Store()
     start_refresh(store, cfg)
@@ -404,6 +418,37 @@ def run(stdscr):
                 putin(row, 2, "usage unavailable", text("dim"))
                 row += 1
             box(box_top, row, "Claude Usage" + (f" · {plan}" if plan else ""), "cyan")
+            row += 1
+
+        # OMNIROUTE USAGE
+        if show_omniroute:
+            box_top = row
+            row += 1
+            with store.lock:
+                omniroute_usage = store.omniroute_usage
+                omniroute_error = store.omniroute_error
+            if omniroute_error:
+                putin(row, 2, f"⚠ {omniroute_error}", text("red"))
+                row += 1
+            elif omniroute_usage:
+                connections = omniroute_usage.get("connections", [])
+                gateway = omniroute_usage.get("gateway")
+                if connections:
+                    for conn in connections:
+                        provider = conn.get("provider", "unknown")
+                        name = conn.get("name", provider)
+                        putin(row, 2, f"{name} ({provider})", text("dim"))
+                        row += 1
+                if gateway:
+                    putin(row, 2, f"Gateway: {json.dumps(gateway)[:80]}", text("dim"))
+                    row += 1
+                if not connections and not gateway:
+                    putin(row, 2, "no usage data", text("dim"))
+                    row += 1
+            else:
+                putin(row, 2, "usage unavailable", text("dim"))
+                row += 1
+            box(box_top, row, "OmniRoute Providers", "magenta")
             row += 1
 
         # GIT HEATMAP

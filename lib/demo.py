@@ -74,3 +74,17 @@ def heatmap():
 def pet():
     """Fake pet display data — no randomness, same every time."""
     return {"name": "Bit", "mood": "happy", "streak": 5}
+
+
+def omniroute_usage():
+    """Fake OmniRoute provider usage."""
+    return {
+        "connections": [
+            {"provider": "claude", "name": "Claude", "email": "user@example.com"},
+            {"provider": "openrouter", "name": "OpenRouter"},
+            {"provider": "groq", "name": "Groq"},
+            {"provider": "google", "name": "Google AI"},
+        ],
+        "gateway": None,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }

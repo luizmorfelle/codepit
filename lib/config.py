@@ -8,7 +8,7 @@ import os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT, "config.json")
 
-PANELS = ["clock", "claude", "tickets", "prs", "heatmap", "pet"]
+PANELS = ["clock", "claude", "tickets", "prs", "heatmap", "omniroute"]
 TICKET_SOURCES = ["github", "jira", "trello", "mcp"]
 PR_SOURCES = ["github", "gitlab", "bitbucket", "mcp"]
 
@@ -60,11 +60,10 @@ def build_layout(cfg, root):
     """Generate the Zellij layout (KDL) honoring which panels are enabled. Pure.
 
     Structure: a full-width content region on top and a single-line Shortcuts bar
-    at the very bottom. The content is left column (clock + pet + one shell) + the
+    at the very bottom. The content is left column (clock + one shell) + the
     board."""
     src = f'source {root}/.env 2>/dev/null; exec '
     clock = _pane("Clock", f"{src}python3 {root}/widgets/clock.py", size='"20%"')
-    pet = _pane("Pet", f"{src}python3 {root}/widgets/pet.py", size='"20%"')
     shell = ('pane focus=true command="bash" {\n'
              '    args "-lc" "cd $HOME; claude; exec bash -i"\n'
              '}')
@@ -72,7 +71,6 @@ def build_layout(cfg, root):
 
     left_children = (
         ([clock] if panel_enabled(cfg, "clock") else [])
-        + ([pet] if panel_enabled(cfg, "pet") else [])
         + [shell]
     )
     left_body = "\n".join(left_children)
