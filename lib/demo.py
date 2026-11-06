@@ -78,13 +78,22 @@ def pet():
 
 def omniroute_usage():
     """Fake OmniRoute provider usage."""
+    now = datetime.now(timezone.utc)
+
+    def win(pct, hours):
+        return {"remaining_pct": float(pct), "is_exhausted": pct == 0, "next_reset_at": (now + timedelta(hours=hours)).isoformat()}
+
     return {
         "connections": [
-            {"provider": "claude", "name": "Claude", "email": "user@example.com"},
-            {"provider": "openrouter", "name": "OpenRouter"},
-            {"provider": "groq", "name": "Groq"},
-            {"provider": "google", "name": "Google AI"},
+            {"provider": "claude", "name": "Claude", "email": "user@example.com",
+             "windows": {"session (5h)": win(0, 2), "weekly (7d)": win(49, 120)}},
+            {"provider": "openrouter", "name": "OpenRouter",
+             "windows": {"daily": win(72, 6), "monthly": win(85, 720)}},
+            {"provider": "groq", "name": "Groq",
+             "windows": {"daily": win(35, 4), "monthly": win(60, 720)}},
+            {"provider": "google", "name": "Google AI",
+             "windows": {"daily": win(12, 3), "monthly": win(40, 720)}},
         ],
         "gateway": None,
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": now.isoformat(),
     }

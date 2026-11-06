@@ -1,4 +1,4 @@
-"""OmniRoute provider usage — reads from local SQLite and calls provider usage APIs."""
+"""OmniRoute provider usage — reads from local SQLite quota_snapshots."""
 import json
 import os
 import sqlite3
@@ -30,44 +30,36 @@ def get_active_connections() -> list[dict[str, Any]]:
         conn.close()
 
 
-USAGE_FETCHER_PROVIDERS = {
-    "github", "antigravity", "agy", "claude", "codex", "cursor", "kiro", "amazon-q",
-    "kimi-coding", "kimi-coding-apikey", "qoder", "glm", "glm-cn", "zai", "glmt",
-    "opencode-go", "ollama-cloud", "minimax", "minimax-cn", "crof", "bailian-coding-plan",
-    "nanogpt", "deepseek", "opencode", "opencode-zen", "xiaomi-mimo", "xai", "xai-oauth",
-    "xao", "vertex", "vertex-partner", "codebuddy-cn", "openrouter", "promptql", "pql",
-    "hyperagent", "ha", "firecrawl", "adobe-firefly", "firefly",
-}
-
-
-def fetch_usage_for_connection(conn_data: dict[str, Any]) -> dict[str, Any] | None:
-    """Fetch usage for a single connection using OmniRoute's usage module."""
-    provider = conn_data["provider"]
-    if provider not in USAGE_FETCHER_PROVIDERS:
-        return {"provider": provider, "error": f"No usage fetcher for {provider}"}
-
-    return {"provider": provider, "connection_id": conn_data["id"], "needs_http": True}
-
-
-def fetch_usage_via_gateway() -> dict[str, Any]:
-    """Fetch usage by calling the OmniRoute gateway API."""
-    import urllib.error
-    import urllib.request
-
-    url = "http://localhost:20128/api/usage"
-    req = urllib.request.Request(url, headers={
-        "Authorization": "Bearer omniroute",
-        "Accept": "application/json",
-    })
+def get_latest_quota_snapshots() -> dict[str, dict[str, Any]]:
+    """Get latest quota snapshot per provider/connection/window_key."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        if e.code == 401:
-            return {"error": "auth_required"}
-        return {"error": f"HTTP {e.code}: {e.reason}"}
-    except urllib.error.URLError as e:
-        return {"error": f"network: {e.reason}"}
+        rows = conn.execute("""
+            SELECT qs.* FROM quota_snapshots qs
+            INNER JOIN (
+                SELECT provider, connection_id, window_key, MAX(created_at) as max_created
+                FROM quota_snapshots
+                GROUP BY provider, connection_id, window_key
+            ) latest ON qs.provider = latest.provider
+                AND qs.connection_id = latest.connection_id
+                AND qs.window_key = latest.window_key
+                AND qs.created_at = latest.max_created
+        """).fetchall()
+        # Organize by provider -> connection_id -> window_key
+        result = {}
+        for r in rows:
+            d = dict(r)
+            provider = d["provider"]
+            conn_id = d["connection_id"]
+            if provider not in result:
+                result[provider] = {}
+            if conn_id not in result[provider]:
+                result[provider][conn_id] = {}
+            result[provider][conn_id][d["window_key"]] = d
+        return result
+    finally:
+        conn.close()
 
 
 def fetch_usage():
@@ -81,18 +73,30 @@ def fetch_usage():
         pass
 
     connections = get_active_connections()
+    quota_snapshots = get_latest_quota_snapshots()
     result = {"connections": [], "fetched_at": datetime.now(timezone.utc).isoformat()}
 
     for conn in connections:
-        usage = fetch_usage_for_connection(conn)
-        if usage:
-            usage["name"] = conn.get("name") or conn["provider"]
-            usage["email"] = conn.get("email") or ""
-            result["connections"].append(usage)
+        provider = conn["provider"]
+        conn_id = conn["id"]
+        snapshots = quota_snapshots.get(provider, {}).get(conn_id, {})
 
-    gateway_usage = fetch_usage_via_gateway()
-    if "error" not in gateway_usage:
-        result["gateway"] = gateway_usage
+        usage_data = {
+            "provider": provider,
+            "name": conn.get("name") or provider,
+            "email": conn.get("email") or "",
+            "windows": {}
+        }
+
+        # Add quota data for each window (5h, 7d, etc.)
+        for window_key, snap in snapshots.items():
+            usage_data["windows"][window_key] = {
+                "remaining_pct": snap.get("remaining_percentage"),
+                "is_exhausted": bool(snap.get("is_exhausted")),
+                "next_reset_at": snap.get("next_reset_at"),
+            }
+
+        result["connections"].append(usage_data)
 
     try:
         with open(CACHE_PATH, "w") as f:

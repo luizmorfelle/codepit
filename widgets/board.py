@@ -12,7 +12,6 @@ from datetime import date, datetime, timedelta, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from lib import config  # noqa: E402
-from lib import heatmap_github  # noqa: E402
 from lib import tickets  # noqa: E402
 from lib import prs as prs_source  # noqa: E402
 from lib import claude_usage  # noqa: E402
@@ -20,7 +19,6 @@ from lib import omniroute_usage  # noqa: E402
 from lib import theme  # noqa: E402
 
 REFRESH = 90
-HEATMAP_WEEKS = 12
 TICK_MS = 120
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STATUS_ORDER = ["To Do", "In Analysis", "In Development", "In Progress",
@@ -157,38 +155,6 @@ def review_color(glyph):
     return "blue"
 
 
-HEATMAP_LEVELS = [(0, "heat0"), (2, "heat1"), (4, "heat2"), (7, "heat3")]
-
-
-def heatmap_color(count):
-    """'heat0'..'heat4' by commit-count thresholds (0 / 1-2 / 3-4 / 5-7 / 8+). Pure."""
-    count = count or 0
-    for threshold, name in HEATMAP_LEVELS:
-        if count <= threshold:
-            return name
-    return "heat4"
-
-
-def heatmap_grid(calendar, weeks=HEATMAP_WEEKS):
-    """Group a flat [{date, count}] list into `weeks` columns of 7 rows (Sun..Sat, oldest
-    week first). "Today" is inferred as the most recent date present in `calendar` (so
-    this is pure — no wall-clock dependency, fully testable with a fixed fixture). A cell
-    is None where no entry exists for that date. Uses each entry's own weekday, so it's
-    correct no matter how many extra padding days the source included."""
-    if not calendar:
-        return [[None] * 7 for _ in range(weeks)]
-    by_date = {d["date"]: d["count"] for d in calendar}
-    today = date.fromisoformat(max(by_date))
-    days_since_sunday = (today.weekday() + 1) % 7  # Mon=0..Sun=6 -> Sun=0..Sat=6
-    week_end = today + timedelta(days=6 - days_since_sunday)  # this week's Saturday
-    grid = []
-    for w in range(weeks):
-        col_end = week_end - timedelta(days=7 * (weeks - 1 - w))
-        col = [by_date.get((col_end - timedelta(days=6 - d)).isoformat()) for d in range(7)]
-        grid.append(col)
-    return grid
-
-
 class Store:
     def __init__(self):
         self.lock = threading.Lock()
@@ -198,8 +164,6 @@ class Store:
         self.usage_error = None
         self.omniroute_usage = None
         self.omniroute_error = None
-        self.heatmap = []
-        self.heatmap_error = None
         self.error = None
         self.last_updated = None
         self.loading = False
@@ -209,7 +173,6 @@ def _worker(store, cfg):
     issues, prs, err = [], [], None
     usage, usage_err = None, None
     omni, omniroute_err = None, None
-    heatmap, heatmap_err = [], None
     try:
         if cfg.get("demo"):
             from lib import demo
@@ -217,7 +180,6 @@ def _worker(store, cfg):
             prs = demo.prs() if config.panel_enabled(cfg, "prs") else []
             usage = demo.usage() if config.panel_enabled(cfg, "claude") else None
             omni = demo.omniroute_usage() if config.panel_enabled(cfg, "omniroute") else None
-            heatmap = demo.heatmap() if config.panel_enabled(cfg, "heatmap") else []
         else:
             if config.panel_enabled(cfg, "tickets"):
                 try:
@@ -239,11 +201,6 @@ def _worker(store, cfg):
                     omni = omniroute_usage.fetch_usage()
                 except Exception as exc:
                     omniroute_err = str(exc)
-            if config.panel_enabled(cfg, "heatmap"):
-                try:
-                    heatmap = heatmap_github.fetch_calendar(weeks=HEATMAP_WEEKS)
-                except Exception as exc:
-                    heatmap_err = str(exc)
     finally:
         with store.lock:
             store.issues = issues
@@ -252,8 +209,6 @@ def _worker(store, cfg):
             store.usage_error = usage_err
             store.omniroute_usage = omni
             store.omniroute_error = omniroute_err
-            store.heatmap = heatmap
-            store.heatmap_error = heatmap_err
             store.error = err
             store.last_updated = datetime.now()
             store.loading = False
@@ -297,7 +252,6 @@ def run(stdscr):
     show_claude = config.panel_enabled(cfg, "claude")
     show_tickets = config.panel_enabled(cfg, "tickets")
     show_prs = config.panel_enabled(cfg, "prs")
-    show_heatmap = config.panel_enabled(cfg, "heatmap")
     show_omniroute = config.panel_enabled(cfg, "omniroute")
 
     store = Store()
@@ -326,8 +280,6 @@ def run(stdscr):
             prs = list(store.prs)
             usage = store.usage
             usage_error = store.usage_error
-            heatmap = list(store.heatmap)
-            heatmap_error = store.heatmap_error
             error = store.error
             loading = store.loading
             updated = store.last_updated
@@ -390,83 +342,49 @@ def run(stdscr):
         button_rect = (bx, bx + len(btn) - 1, 0)
         row = 1
 
-        # CLAUDE USAGE
-        if show_claude:
+        # USAGE (Claude native + OmniRoute providers merged in one box)
+        if show_claude or show_omniroute:
             plan = (usage or {}).get("plan", "")
+            with store.lock:
+                omni = store.omniroute_usage
+                omniroute_error = store.omniroute_error
             box_top = row
             row += 1
-            if usage_error:
-                putin(row, 2, f"⚠ {usage_error}", text("red"))
-                row += 1
-            elif usage:
-                any_win = False
+            now = datetime.now(timezone.utc)
+            # rows: (window_label, provider_label, pct_used, reset_iso, exhausted)
+            rows_ = []
+            if show_claude and usage:
                 for label, key in (("5h", "five_hour"), ("7d", "seven_day"), ("Sonnet", "sonnet")):
                     win = usage.get(key)
                     if not win:
                         continue
-                    any_win = True
-                    pct = win["pct"]
-                    putin(row, 2, f"{label:<6}", text("dim"))
-                    putin(row, 8, claude_usage.usage_bar(pct, 12), text(claude_usage.usage_color(pct)))
-                    reset = claude_usage.human_reset(win["resets_at"], datetime.now(timezone.utc))
-                    putin(row, 21, f"{int(pct)}% {reset}", text("text"))
-                    row += 1
-                if not any_win:
-                    putin(row, 2, "no usage data", text("dim"))
-                    row += 1
-            else:
-                putin(row, 2, "usage unavailable", text("dim"))
+                    rows_.append((label, f"Claude/{plan or 'native'}", win["pct"], win["resets_at"], False))
+            if show_omniroute and omni:
+                for conn in omni.get("connections", []):
+                    prov_name = conn.get("name") or conn.get("provider", "?")
+                    for window_key, data in (conn.get("windows") or {}).items():
+                        remaining = data.get("remaining_pct")
+                        if remaining is None:
+                            continue
+                        rows_.append((window_key, prov_name, 100 - remaining,
+                                      data.get("next_reset_at"), bool(data.get("is_exhausted"))))
+            any_err = usage_error or omniroute_error
+            if any_err:
+                putin(row, 2, f"⚠ {any_err}", text("red"))
                 row += 1
-            box(box_top, row, "Claude Usage" + (f" · {plan}" if plan else ""), "cyan")
-            row += 1
-
-        # OMNIROUTE USAGE
-        if show_omniroute:
-            box_top = row
-            row += 1
-            with store.lock:
-                omniroute_usage = store.omniroute_usage
-                omniroute_error = store.omniroute_error
-            if omniroute_error:
-                putin(row, 2, f"⚠ {omniroute_error}", text("red"))
-                row += 1
-            elif omniroute_usage:
-                connections = omniroute_usage.get("connections", [])
-                gateway = omniroute_usage.get("gateway")
-                if connections:
-                    for conn in connections:
-                        provider = conn.get("provider", "unknown")
-                        name = conn.get("name", provider)
-                        putin(row, 2, f"{name} ({provider})", text("dim"))
-                        row += 1
-                if gateway:
-                    putin(row, 2, f"Gateway: {json.dumps(gateway)[:80]}", text("dim"))
+            if rows_:
+                for label, provider, pct, reset_iso, exhausted in rows_:
+                    reset = claude_usage.human_reset(reset_iso, now)
+                    putin(row, 2, f"{label:<8}", text("dim"))
+                    putin(row, 10, f"{provider[:18]:<18}", text("text"))
+                    putin(row, 29, claude_usage.usage_bar(pct, 12), text(claude_usage.usage_color(pct)))
+                    tail = f"{int(pct)}% {reset}" + (" ⚠" if exhausted else "")
+                    putin(row, 42, tail, text("text"))
                     row += 1
-                if not connections and not gateway:
-                    putin(row, 2, "no usage data", text("dim"))
-                    row += 1
-            else:
-                putin(row, 2, "usage unavailable", text("dim"))
+            elif not any_err:
+                putin(row, 2, "no usage data", text("dim"))
                 row += 1
-            box(box_top, row, "OmniRoute Providers", "magenta")
-            row += 1
-
-        # GIT HEATMAP
-        if show_heatmap:
-            box_top = row
-            row += 1
-            total = None
-            if heatmap_error:
-                putin(row, 2, f"⚠ {heatmap_error}", text("red"))
-                row += 1
-            else:
-                grid = heatmap_grid(heatmap, weeks=HEATMAP_WEEKS)
-                total = sum(c for col in grid for c in col if c)
-                for w, col in enumerate(grid):
-                    for d, count in enumerate(col):
-                        putin(row + d, 2 + w * 3, "██", text(heatmap_color(count)))
-                row += 7
-            box(box_top, row, "Heatmap", "green", total)
+            box(box_top, row, "Usage · hour · provider/model · reset", "cyan")
             row += 1
 
         # TICKETS: a "By Status" box then a "Tickets" list box (with a row cursor)
